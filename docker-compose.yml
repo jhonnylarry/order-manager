@@ -1,0 +1,74 @@
+# ============================================================
+# Order Manager - orquestación con Docker Compose
+#   app: API Spring Boot (perfil "docker")
+#   db:  PostgreSQL 16 con volumen persistente
+#
+# Uso:
+#   cp .env.example .env          (definir las credenciales)
+#   docker compose up -d --build  levantar todo en segundo plano
+#   docker compose ps             estado y salud de los servicios
+#   docker compose logs -f app    logs de la aplicación
+#   docker compose down           detener y eliminar contenedores
+#   docker compose down -v        además elimina el volumen (borra los datos)
+# ============================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: order-manager:1.0.0
+    container_name: order-manager-app
+    ports:
+      - "8098:8098"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-orderdb}
+      DB_USER: ${POSTGRES_USER:?Defina POSTGRES_USER en el archivo .env}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD en el archivo .env}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - order-net
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  db:
+    image: postgres:16-alpine
+    container_name: order-manager-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-orderdb}
+      POSTGRES_USER: ${POSTGRES_USER:?Defina POSTGRES_USER en el archivo .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD en el archivo .env}
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - order-net
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+volumes:
+  order-db-data:
+
+networks:
+  order-net:
+    driver: bridge
