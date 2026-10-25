@@ -1,0 +1,38 @@
+# Artefactos de compilación (los genera Maven dentro de la imagen)
+target/
+**/target/
+
+# Control de versiones y flujos de trabajo
+.git
+.gitignore
+.github/
+
+# Documentación
+README.md
+docs/
+*.md
+
+# Configuración de IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Variables de entorno y secretos (nunca deben entrar en la imagen)
+.env
+.env.*
+*.env
+
+# Archivos de orquestación
+docker-compose*.yml
+Dockerfile
+.dockerignore
