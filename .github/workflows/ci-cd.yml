@@ -19,6 +19,7 @@ env:
   IMAGE_NAME: order-manager
   APP_PORT: "8098"
   MIN_COVERAGE: "70"
+  SCANNER_JAVA_VERSION: "21"
   SONAR_ORGANIZATION: jhonnylarry
   SONAR_PROJECT_KEY: jhonnylarry_order-manager
 
@@ -79,11 +80,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurar JDK ${{ env.JAVA_VERSION }}
+      # El scanner de SonarCloud exige Java 21 o superior para ejecutarse.
+      # El código sigue compilándose para Java 17 (release 17 en el pom).
+      - name: Configurar JDK ${{ env.SCANNER_JAVA_VERSION }} para el scanner
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: ${{ env.SCANNER_JAVA_VERSION }}
           cache: maven
 
       - name: Analizar con SonarCloud (bloquea si falla el quality gate)
