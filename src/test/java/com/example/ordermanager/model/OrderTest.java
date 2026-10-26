@@ -106,11 +106,14 @@ class OrderTest {
         Order otherId = new Order("A");
         otherId.setId(2L);
 
-        assertEquals(first, first);
+        Order sameReference = first;
+        Object otherType = "no es un pedido";
+
+        assertEquals(first, sameReference);
         assertEquals(first, sameId);
         assertEquals(first.hashCode(), sameId.hashCode());
         assertNotEquals(first, otherId);
         assertNotEquals(first, null);
-        assertNotEquals(first, "no es un pedido");
+        assertNotEquals(first, otherType);
     }
 }

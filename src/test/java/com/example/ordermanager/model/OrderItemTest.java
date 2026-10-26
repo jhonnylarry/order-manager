@@ -70,13 +70,16 @@ class OrderItemTest {
         OrderItem base = new OrderItem("Mouse", 2, new BigDecimal("10.00"));
         OrderItem same = new OrderItem("Mouse", 2, new BigDecimal("10.00"));
 
-        assertEquals(base, base);
+        OrderItem sameReference = base;
+        Object otherType = "no es un ítem";
+
+        assertEquals(base, sameReference);
         assertEquals(base, same);
         assertEquals(base.hashCode(), same.hashCode());
         assertNotEquals(base, new OrderItem("Teclado", 2, new BigDecimal("10.00")));
         assertNotEquals(base, new OrderItem("Mouse", 3, new BigDecimal("10.00")));
         assertNotEquals(base, new OrderItem("Mouse", 2, new BigDecimal("11.00")));
         assertNotEquals(base, null);
-        assertNotEquals(base, "no es un ítem");
+        assertNotEquals(base, otherType);
     }
 }
