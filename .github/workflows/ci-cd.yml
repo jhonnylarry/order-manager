@@ -1,0 +1,201 @@
+# ============================================================
+# Pipeline CI/CD - Order Manager
+#   1. test      pruebas unitarias + cobertura mínima (JaCoCo)
+#   2. security  análisis estático en SonarCloud con quality gate
+#   3. build     imagen Docker con trazabilidad al commit
+#   4. deploy    despliegue automático con Docker Compose + prueba de humo
+# Cada etapa depende de la anterior: si una falla, el pipeline se detiene.
+# ============================================================
+name: CI/CD Pipeline - Order Manager
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  JAVA_VERSION: "17"
+  IMAGE_NAME: order-manager
+  APP_PORT: "8098"
+  MIN_COVERAGE: "70"
+  SCANNER_JAVA_VERSION: "21"
+  SONAR_ORGANIZATION: jhonnylarry
+  SONAR_PROJECT_KEY: jhonnylarry_order-manager
+
+jobs:
+  # ----------------------------------------------------------
+  # 1. Pruebas y cobertura
+  # ----------------------------------------------------------
+  test:
+    name: Pruebas y cobertura
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Ejecutar pruebas y generar reporte JaCoCo
+        run: mvn -B clean verify
+
+      - name: Verificar cobertura mínima
+        run: |
+          python3 - <<'EOF'
+          import csv, os, sys
+          minimo = float(os.environ["MIN_COVERAGE"])
+          filas = list(csv.DictReader(open("target/site/jacoco/jacoco.csv")))
+          cubiertas = sum(int(f["INSTRUCTION_COVERED"]) for f in filas)
+          perdidas = sum(int(f["INSTRUCTION_MISSED"]) for f in filas)
+          total = 100 * cubiertas / (cubiertas + perdidas)
+          resumen = f"Cobertura total de instrucciones: {total:.1f}% (mínimo exigido: {minimo:.0f}%)"
+          print(resumen)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as s:
+              s.write(f"### Cobertura de pruebas\n{resumen}\n")
+          sys.exit(0 if total >= minimo else 1)
+          EOF
+
+      - name: Publicar reporte de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+
+  # ----------------------------------------------------------
+  # 2. Seguridad y calidad de código
+  # ----------------------------------------------------------
+  security:
+    name: Análisis de seguridad (SonarCloud)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # El scanner de SonarCloud exige Java 21 o superior para ejecutarse.
+      # El código sigue compilándose para Java 17 (release 17 en el pom).
+      - name: Configurar JDK ${{ env.SCANNER_JAVA_VERSION }} para el scanner
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.SCANNER_JAVA_VERSION }}
+          cache: maven
+
+      - name: Analizar con SonarCloud (bloquea si falla el quality gate)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.organization="${SONAR_ORGANIZATION}" \
+            -Dsonar.projectKey="${SONAR_PROJECT_KEY}" \
+            -Dsonar.qualitygate.wait=true
+
+  # ----------------------------------------------------------
+  # 3. Construcción de la imagen Docker
+  # ----------------------------------------------------------
+  build:
+    name: Construir imagen Docker
+    runs-on: ubuntu-latest
+    needs: security
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Construir imagen con etiquetas de trazabilidad
+        run: |
+          docker build \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            -t "${IMAGE_NAME}:1.0.0" \
+            -t "${IMAGE_NAME}:${{ github.sha }}" .
+
+      - name: Verificar que la imagen existe
+        run: docker image ls "${IMAGE_NAME}"
+
+      - name: Guardar imagen comprimida
+        run: docker save "${IMAGE_NAME}:1.0.0" | gzip > "${IMAGE_NAME}.tar.gz"
+
+      - name: Publicar imagen como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: ${{ env.IMAGE_NAME }}.tar.gz
+          retention-days: 7
+
+  # ----------------------------------------------------------
+  # 4. Despliegue automático (entorno simulado con Docker Compose)
+  # ----------------------------------------------------------
+  deploy:
+    name: Desplegar con Docker Compose
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Descargar imagen construida
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Cargar imagen en Docker
+        run: gunzip -c "${IMAGE_NAME}.tar.gz" | docker load
+
+      - name: Generar credenciales efímeras del entorno
+        run: |
+          {
+            echo "POSTGRES_DB=orderdb"
+            echo "POSTGRES_USER=orderuser"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+          } > .env
+
+      - name: Levantar servicios
+        run: docker compose up -d --no-build
+
+      - name: Esperar a que la aplicación esté saludable
+        run: |
+          for i in $(seq 1 40); do
+            estado=$(docker inspect -f '{{.State.Health.Status}}' order-manager-app 2>/dev/null || echo "iniciando")
+            echo "Intento $i: $estado"
+            [ "$estado" = "healthy" ] && exit 0
+            sleep 3
+          done
+          echo "La aplicación no llegó a estado saludable"
+          exit 1
+
+      - name: Prueba de humo
+        run: |
+          curl -fsS "http://localhost:${APP_PORT}/actuator/health"
+          curl -fsS -X POST "http://localhost:${APP_PORT}/api/orders" \
+            -H 'Content-Type: application/json' \
+            -d '{"customerName":"Prueba de despliegue","items":[]}'
+          curl -fsS "http://localhost:${APP_PORT}/api/orders"
+
+      - name: Registrar trazabilidad del despliegue
+        run: |
+          {
+            echo "### Despliegue"
+            echo "- Entorno: ${{ github.ref_name == 'main' && 'production' || 'staging' }}"
+            echo "- Commit: ${{ github.sha }}"
+            echo "- Imagen: ${IMAGE_NAME}:${{ github.sha }}"
+            echo "- Ejecución: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Mostrar logs si el despliegue falla
+        if: failure()
+        run: docker compose logs
+
+      - name: Detener el entorno simulado
+        if: always()
+        run: docker compose down -v
