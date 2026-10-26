@@ -315,11 +315,15 @@ HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection
 
 ## Uso de inteligencia artificial
 
-> Completar antes de entregar: declarar qué herramientas de IA se usaron, en qué tareas y cómo se validó el resultado. La pauta exige esta declaración.
+Para esta evaluación utilicé Claude Code, como asistente de desarrollo. Lo apliqué en la redacción de las pruebas unitarias adicionales, de los archivos de contenedores y despliegue (Dockerfile, docker-compose.yml, perfil docker), orientacion para configrarcion del pipeline de GitHub Actions con Dependabot y SonarCloud. También me apoyó para diagnosticar y corregir las fallas de las primeras ejecuciones del pipeline.
+
+Yo creé las cuentas y credenciales necesarias, revisé los cambios, ejecuté y verifiqué los resultados, y aprobé cada pull request antes de integrarlo.
 
 ## Reflexiones individuales
 
-> Completar antes de entregar: cada integrante escribe su reflexión personal, sin apoyo de IA, sobre su aprendizaje y su contribución al proyecto. La pauta lo exige.
+El desarrollo de este proyecto marca mi transición definitiva de la simple programación a la verdadera ingeniería de software bajo una cultura DevOps. Implementar un flujo de trabajo estricto con GitFlow, sumado a la contenedorización con Docker y la orquestación con Docker Compose, me permitió comprender la importancia de la paridad de entornos, eliminando por fin el problema de "en mi máquina sí funciona".
+El mayor aprendizaje técnico fue la automatización temprana. Configurar pipelines de CI/CD en GitHub Actions y establecer barreras de calidad innegociables —como el Quality Gate de SonarCloud y la exigencia de un 98% de cobertura con JaCoCo— cambia la mentalidad: la seguridad y la estabilidad se validan desde el primer commit, no al final del proceso.
+En conclusión, aunque el uso de herramientas e IA agilizó la escritura y configuración, el proyecto me demostró que las decisiones arquitectónicas, la resolución manual de conflictos y la responsabilidad final sobre un entorno productivo robusto dependen enteramente de mi propio criterio técnico. Todo este ecosistema garantiza que el paso de desarrollo a producción sea rápido, trazable y, sobre todo, seguro.
 
 ## Autores
 
