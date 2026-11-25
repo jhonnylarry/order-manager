@@ -24,7 +24,8 @@ FROM bellsoft/liberica-openjre-alpine:17
 WORKDIR /app
 
 # Usuario sin privilegios: el contenedor no corre como root
-RUN addgroup -S spring && adduser -S spring -G spring
+# El UID numérico permite que Kubernetes verifique que no se ejecuta como root
+RUN addgroup -S -g 10001 spring && adduser -S -u 10001 spring -G spring
 
 COPY --from=build --chown=spring:spring /app/target/*.jar app.jar
 
