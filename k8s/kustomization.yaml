@@ -1,0 +1,9 @@
+# Despliegue completo: kubectl apply -k k8s
+# (las credenciales se crean aparte con scripts/desplegar-k8s.sh)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespaces.yaml
+  - app
+  - monitoring
+  - rbac-logs.yaml

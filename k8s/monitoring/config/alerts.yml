@@ -1,0 +1,46 @@
+groups:
+  - name: order-manager
+    rules:
+      - alert: AplicacionNoDisponible
+        expr: absent(up{job="order-manager"} == 1)
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: La aplicación no responde a la recolección de métricas
+
+      - alert: TasaDeErroresAlta
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="order-manager",status=~"5.."}[5m]))
+            / sum(rate(http_server_requests_seconds_count{job="order-manager"}[5m])) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Más del 5% de las peticiones responden con error 5xx
+
+      - alert: ErroresEnLogs
+        expr: sum(increase(logback_events_total{job="order-manager",level="error"}[5m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: La aplicación registró errores en los últimos 5 minutos
+
+      - alert: LatenciaAlta
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job="order-manager",uri!~"/actuator.*"}[5m]))) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: El percentil 95 de latencia supera 1 segundo
+
+      - alert: MemoriaCercaDelLimite
+        expr: |
+          max by (pod) (container_memory_working_set_bytes{namespace="order-manager",container="app"})
+            / max by (pod) (container_spec_memory_limit_bytes{namespace="order-manager",container="app"}) > 0.9
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: El contenedor de la aplicación usa más del 90% de su memoria
