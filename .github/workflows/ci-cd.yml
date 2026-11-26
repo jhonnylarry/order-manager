@@ -1,5 +1,6 @@
 # ============================================================
 # Pipeline CI/CD - Order Manager
+#   0. audit     auditoría de cumplimiento de las políticas del proyecto
 #   1. test      pruebas unitarias + cobertura mínima (JaCoCo)
 #   2. security  análisis estático en SonarCloud con quality gate
 #   3. build     imagen Docker con trazabilidad al commit
@@ -29,11 +30,37 @@ env:
 
 jobs:
   # ----------------------------------------------------------
+  # 0. Auditoría de cumplimiento
+  # ----------------------------------------------------------
+  audit:
+    name: Auditoría de cumplimiento
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Auditar las políticas del proyecto
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/auditar-cumplimiento.sh
+
+      - name: Publicar informe de auditoría
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auditoria-cumplimiento
+          path: evidencias/
+          if-no-files-found: ignore
+
+  # ----------------------------------------------------------
   # 1. Pruebas y cobertura
   # ----------------------------------------------------------
   test:
     name: Pruebas y cobertura
     runs-on: ubuntu-latest
+    needs: audit
     outputs:
       cobertura: ${{ steps.cobertura.outputs.total }}
       pruebas: ${{ steps.cobertura.outputs.pruebas }}
