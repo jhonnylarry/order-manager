@@ -1,0 +1,17 @@
+# Estado del clúster con el trabajador detenido - 26-11-2026 16:57:14
+------------------------------------------------------------------------------------------------
+|                                       DescribeInstances                                      |
++---------+-------------+----------------------------+----------------------------+------------+
+| Estado  |     IP      |          Nombre            |          Subred            |   Tipo     |
++---------+-------------+----------------------------+----------------------------+------------+
+|  stopped|  None       |  order-manager-trabajador  |  subnet-09988e4b1238dc0ec  |  t3.medium |
+|  running|  3.228.11.4 |  order-manager-servidor    |  subnet-0123e157883b3442b  |  t3.large  |
++---------+-------------+----------------------------+----------------------------+------------+
+NAME             STATUS   ROLES           AGE    VERSION        ROL
+ip-10-20-1-58    Ready    control-plane   131m   v1.37.2+k3s1   principal
+ip-10-20-2-107   Ready    <none>          131m   v1.37.2+k3s1   trabajador
+
+NAME                             READY   STATUS    RESTARTS   AGE    IP           NODE             NOMINATED NODE   READINESS GATES
+order-manager-6cf4b7dfb5-6ljbm   1/1     Running   0          131m   10.42.1.2    ip-10-20-2-107   <none>           <none>
+postgres-5fb99746dc-fg2t9        1/1     Running   0          131m   10.42.0.14   ip-10-20-1-58    <none>           <none>
+	

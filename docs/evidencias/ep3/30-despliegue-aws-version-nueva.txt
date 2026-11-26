@@ -1,0 +1,66 @@
+----------------------------------------------------------------------------------------------------
+|                                         DescribeInstances                                        |
++---------+-----------------+----------------------------+----------------------------+------------+
+| Estado  |       IP        |          Nombre            |          Subred            |   Tipo     |
++---------+-----------------+----------------------------+----------------------------+------------+
+|  running|  44.203.145.238 |  order-manager-trabajador  |  subnet-09988e4b1238dc0ec  |  t3.medium |
+|  running|  98.81.51.27    |  order-manager-servidor    |  subnet-0123e157883b3442b  |  t3.large  |
++---------+-----------------+----------------------------+----------------------------+------------+
+namespace/order-manager unchanged
+namespace/monitoring unchanged
+namespace/monitoring unchanged
+namespace/order-manager unchanged
+serviceaccount/alloy unchanged
+serviceaccount/prometheus unchanged
+role.rbac.authorization.k8s.io/alloy-logs unchanged
+clusterrole.rbac.authorization.k8s.io/order-manager-prometheus unchanged
+rolebinding.rbac.authorization.k8s.io/alloy-logs unchanged
+clusterrolebinding.rbac.authorization.k8s.io/order-manager-prometheus unchanged
+configmap/alloy-config-5dth4mdm85 unchanged
+configmap/grafana-dashboard-provider-6h8bmhm77c unchanged
+configmap/grafana-dashboards-7gmcm2c55t unchanged
+configmap/grafana-datasources-c4b89dd978 unchanged
+configmap/loki-config-m9gbg779mt unchanged
+configmap/prometheus-config-tmmdm5h6th unchanged
+service/grafana unchanged
+service/loki unchanged
+service/prometheus unchanged
+service/pushgateway unchanged
+service/order-manager unchanged
+service/postgres unchanged
+persistentvolumeclaim/postgres-data unchanged
+deployment.apps/alloy unchanged
+deployment.apps/grafana unchanged
+deployment.apps/loki unchanged
+deployment.apps/prometheus unchanged
+deployment.apps/pushgateway unchanged
+deployment.apps/order-manager configured
+deployment.apps/postgres unchanged
+horizontalpodautoscaler.autoscaling/order-manager unchanged
+deployment "postgres" successfully rolled out
+Waiting for deployment "order-manager" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "order-manager" rollout to finish: 1 old replicas are pending termination...
+deployment "order-manager" successfully rolled out
+deployment "prometheus" successfully rolled out
+deployment "pushgateway" successfully rolled out
+deployment "loki" successfully rolled out
+deployment "alloy" successfully rolled out
+deployment "grafana" successfully rolled out
+Despliegue completado en 32 s (commit 5ba1503, entorno aws)
+NAME                             READY   STATUS    RESTARTS       AGE
+order-manager-5c4cbd5d77-q765p   1/1     Running   0              30s
+postgres-5fb99746dc-fg2t9        1/1     Running   1 (111m ago)   5h39m
+NAME                           READY   STATUS    RESTARTS       AGE
+alloy-66886c7df6-rskvc         1/1     Running   1 (111m ago)   5h39m
+grafana-ff7d4778c-jldvr        1/1     Running   1 (111m ago)   5h39m
+loki-b9f5fc9bc-2sssr           1/1     Running   1 (111m ago)   5h39m
+prometheus-68ffd45489-4l75j    1/1     Running   1 (111m ago)   5h39m
+pushgateway-7c58955664-b8gsc   1/1     Running   1 (111m ago)   5h39m
+
+NAME             STATUS   ROLES           AGE     VERSION        ROL
+ip-10-20-1-58    Ready    control-plane   5h40m   v1.37.2+k3s1   principal
+ip-10-20-2-107   Ready    <none>          5h39m   v1.37.2+k3s1   trabajador
+NAME                             READY   STATUS    RESTARTS       AGE     IP           NODE             NOMINATED NODE   READINESS GATES
+order-manager-5c4cbd5d77-q765p   1/1     Running   0              31s     10.42.1.11   ip-10-20-2-107   <none>           <none>
+postgres-5fb99746dc-fg2t9        1/1     Running   1 (111m ago)   5h39m   10.42.0.20   ip-10-20-1-58    <none>           <none>
+	

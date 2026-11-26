@@ -1,0 +1,23 @@
+Prueba de falla controlada en AWS (26-11-2026): se detiene la base de datos dos veces
+
+Primera caída
+20:26:12  Se detiene la base de datos
+20:26:54  Respuestas durante la falla:   80 500 
+20:26:54  Se restituye la base de datos
+20:27:04  Base de datos disponible
+20:28:11  Captura de alertas guardada
+
+Segunda caída
+20:28:26  Se detiene la base de datos
+20:29:08  Respuestas durante la falla:   80 500 
+20:29:08  Se restituye la base de datos
+20:29:18  Base de datos disponible
+20:31:15  Captura de alertas guardada
+
+Alertas según Prometheus:
+20:26:36  ErroresEnLogs activa
+20:29:21  TasaDeErroresAlta pendiente (11% de respuestas 5xx)
+20:30:21  TasaDeErroresAlta disparada (la regla exige 1 minuto)
+
+Observación: tras reiniciar la aplicación, las primeras respuestas 500 crean la serie de la métrica
+y rate()/increase() no las cuentan. Por eso la tasa de errores recién se reflejó en la segunda caída.
