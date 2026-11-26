@@ -15,7 +15,7 @@ for i in $(seq 1 "$VECES"); do
   # Errores del cliente: pedido inexistente y datos inválidos
   pedir "$BASE/api/orders/999999"
   pedir -X POST "$BASE/api/orders" -H 'Content-Type: application/json' -d '{"customerName":""}'
-  # Error del servidor: cuerpo mal formado
+  # Cuerpo mal formado: también es un error del cliente
   if [ $(( i % 5 )) -eq 0 ]; then
     pedir -X POST "$BASE/api/orders" -H 'Content-Type: application/json' -d '{esto-no-es-json'
   fi
