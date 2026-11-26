@@ -51,7 +51,7 @@ Objetivos de la evaluación que cubre el proyecto:
 
 | Área | Tecnología |
 |---|---|
-| Lenguaje y framework | Java 17, Spring Boot 3.3.4 (Web, Data JPA, Validation, Actuator) |
+| Lenguaje y framework | Java 17, Spring Boot 4.1.3 (Web, Data JPA, Validation, Actuator) |
 | Base de datos | H2 en memoria (desarrollo y pruebas), PostgreSQL 16 (Docker) |
 | Pruebas | JUnit 5, Mockito, Spring Boot Test (MockMvc), JaCoCo |
 | Contenedores | Docker (multi-stage), Docker Compose |
