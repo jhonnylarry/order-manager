@@ -14,23 +14,34 @@ mkdir -p evidencias
 fallos=0
 
 # controlar <nombre> <reporte> <argumentos de trivy...>
+# Trivy termina con 3 cuando hay hallazgos. Cualquier otro error también
+# detiene el pipeline: un control que no se pudo ejecutar no se da por aprobado.
 controlar() {
-  local nombre="$1" reporte="$2"
+  local nombre="$1" reporte="$2" codigo
   shift 2
-  if trivy "$@" --exit-code 1 --output "$reporte"; then
-    echo "APROBADO   $nombre" | tee -a "$RESUMEN"
-  else
-    cat "$reporte" 2>/dev/null
-    echo "BLOQUEADO  $nombre" | tee -a "$RESUMEN"
-    fallos=$((fallos + 1))
-  fi
+  trivy "$@" --exit-code 3 --output "$reporte"
+  codigo=$?
+  case "$codigo" in
+    0)
+      echo "APROBADO   $nombre" | tee -a "$RESUMEN"
+      return
+      ;;
+    3)
+      cat "$reporte"
+      echo "BLOQUEADO  $nombre" | tee -a "$RESUMEN"
+      ;;
+    *)
+      echo "ERROR      $nombre (el escáner terminó con código $codigo)" | tee -a "$RESUMEN"
+      ;;
+  esac
+  fallos=$((fallos + 1))
 }
 
 controlar "Vulnerabilidades críticas en la imagen" evidencias/vulnerabilidades-criticas.txt \
   image --scanners vuln --severity CRITICAL "$IMAGEN"
 
 controlar "Secretos en el repositorio" evidencias/secretos.txt \
-  fs --scanners secret --skip-dirs target .
+  fs --scanners secret --offline-scan --skip-dirs target .
 
 controlar "Configuraciones críticas" evidencias/configuracion.txt \
   config --severity CRITICAL --skip-dirs target .
