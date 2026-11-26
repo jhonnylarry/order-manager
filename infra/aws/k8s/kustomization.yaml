@@ -1,0 +1,40 @@
+# Ajustes del clúster en AWS sobre los manifiestos comunes de k8s/
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../k8s
+patches:
+  # El monitoreo se ejecuta en el servidor: sigue disponible si se apaga el trabajador
+  - target:
+      kind: Deployment
+      namespace: monitoring
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          rol: principal
+  # La base de datos usa disco local, por lo que debe quedarse en un mismo nodo
+  - target:
+      kind: Deployment
+      name: postgres
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          rol: principal
+  # Si un nodo se cae, la aplicación se reubica a los 30 s (por defecto son 5 min)
+  - target:
+      kind: Deployment
+      name: order-manager
+    patch: |-
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - key: node.kubernetes.io/not-ready
+            operator: Exists
+            effect: NoExecute
+            tolerationSeconds: 30
+          - key: node.kubernetes.io/unreachable
+            operator: Exists
+            effect: NoExecute
+            tolerationSeconds: 30

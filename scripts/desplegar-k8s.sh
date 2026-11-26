@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.."
 
 IMAGE_TAG="${1:-1.0.0}"
 ENTORNO="${ENTORNO:-local}"
+KUSTOMIZE_DIR="${KUSTOMIZE_DIR:-k8s}"
 COMMIT="${COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo desconocido)}"
 SONAR_PROJECT_KEY="${SONAR_PROJECT_KEY:-jhonnylarry_order-manager}"
 INICIO=$(date +%s)
@@ -26,8 +27,10 @@ if ! kubectl -n monitoring get secret grafana-admin >/dev/null 2>&1; then
     --from-literal=password="${GRAFANA_PASSWORD:-$(openssl rand -hex 12)}"
 fi
 
-kubectl apply -k k8s
-kubectl -n order-manager set image deployment/order-manager "app=order-manager:${IMAGE_TAG}"
+# La etiqueta de la imagen se fija antes de aplicar, para desplegar una sola versión
+kubectl kustomize "${KUSTOMIZE_DIR}" |
+  sed "s|image: order-manager:1.0.0|image: order-manager:${IMAGE_TAG}|" |
+  kubectl apply -f -
 
 for despliegue in postgres order-manager; do
   kubectl -n order-manager rollout status "deployment/${despliegue}" --timeout=300s

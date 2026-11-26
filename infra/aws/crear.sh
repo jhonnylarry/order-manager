@@ -88,10 +88,7 @@ curl -sfL https://get.k3s.io | K3S_TOKEN=${TOKEN_K3S} sh -s - server --node-labe
 docker save order-manager:\$SHA | k3s ctr images import -
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 until kubectl get nodes | grep -q ' Ready'; do sleep 5; done
-COMMIT=\${SHA:0:7} ENTORNO=aws GRAFANA_PASSWORD=${CLAVE_GRAFANA} scripts/desplegar-k8s.sh \$SHA
-# La base de datos permanece en el servidor para que apagar el trabajador no la afecte
-kubectl -n order-manager patch deployment postgres -p '{"spec":{"template":{"spec":{"nodeSelector":{"rol":"principal"}}}}}'
-kubectl -n order-manager rollout status deployment/postgres --timeout=300s
+COMMIT=\${SHA:0:7} ENTORNO=aws KUSTOMIZE_DIR=infra/aws/k8s GRAFANA_PASSWORD=${CLAVE_GRAFANA} scripts/desplegar-k8s.sh \$SHA
 echo DESPLIEGUE_COMPLETO
 SCRIPT
 } > "$TMP/servidor.sh"
@@ -127,7 +124,9 @@ IP=$(ip_publica "$SERVIDOR")
 echo "== Instalando (puede tardar 8 a 12 minutos)"
 for _ in $(seq 1 90); do
   if curl -fsS --max-time 5 "http://${IP}:30030/api/health" >/dev/null 2>&1 &&
-     curl -fsS --max-time 5 "http://${IP}:30080/actuator/health" >/dev/null 2>&1; then
+     curl -fsS --max-time 5 "http://${IP}:30080/api/orders" >/dev/null 2>&1 &&
+     curl -fsS --max-time 5 "http://${IP}:30090/api/v1/query?query=deploy_duration_seconds" 2>/dev/null |
+       grep -q '"result":\[{'; then
     cat <<FIN
 
 Despliegue listo
