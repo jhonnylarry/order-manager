@@ -3,7 +3,8 @@
 #   1. test      pruebas unitarias + cobertura mínima (JaCoCo)
 #   2. security  análisis estático en SonarCloud con quality gate
 #   3. build     imagen Docker con trazabilidad al commit
-#   4. deploy    despliegue automático en Kubernetes con monitoreo verificado
+#   4. scan      bloqueo por vulnerabilidades críticas, secretos y configuración
+#   5. deploy    despliegue automático en Kubernetes con monitoreo verificado
 # Cada etapa depende de la anterior: si una falla, el pipeline se detiene.
 # ============================================================
 name: CI/CD Pipeline - Order Manager
@@ -22,6 +23,9 @@ env:
   SCANNER_JAVA_VERSION: "21"
   SONAR_ORGANIZATION: jhonnylarry
   SONAR_PROJECT_KEY: jhonnylarry_order-manager
+  # Escáner de seguridad: versión fija y verificada por su huella SHA-256
+  TRIVY_VERSION: "0.76.2"
+  TRIVY_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
 
 jobs:
   # ----------------------------------------------------------
@@ -141,12 +145,51 @@ jobs:
           retention-days: 7
 
   # ----------------------------------------------------------
-  # 4. Despliegue automático en Kubernetes (clúster efímero kind)
+  # 4. Bloqueo por fallas críticas de seguridad
+  # ----------------------------------------------------------
+  scan:
+    name: Escaneo de vulnerabilidades
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Descargar imagen construida
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: ${{ runner.temp }}
+
+      - name: Cargar la imagen
+        run: gunzip -c "${RUNNER_TEMP}/${IMAGE_NAME}.tar.gz" | docker load
+
+      - name: Instalar Trivy y verificar su integridad
+        run: |
+          archivo="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -sSfL -o "${RUNNER_TEMP}/${archivo}" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${archivo}"
+          echo "${TRIVY_SHA256}  ${RUNNER_TEMP}/${archivo}" | sha256sum -c -
+          sudo tar -xzf "${RUNNER_TEMP}/${archivo}" -C /usr/local/bin trivy
+
+      - name: Aplicar política de seguridad
+        run: scripts/escanear-seguridad.sh "${IMAGE_NAME}:1.0.0"
+
+      - name: Publicar reporte de seguridad
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-seguridad
+          path: evidencias/
+          if-no-files-found: ignore
+
+  # ----------------------------------------------------------
+  # 5. Despliegue automático en Kubernetes (clúster efímero kind)
   # ----------------------------------------------------------
   deploy:
     name: Desplegar en Kubernetes y verificar monitoreo
     runs-on: ubuntu-latest
-    needs: [test, build]
+    needs: [test, build, scan]
     environment: ${{ github.event_name == 'pull_request' && 'preview' || (github.ref_name == 'main' && 'production' || 'staging') }}
     env:
       ENTORNO: ${{ github.event_name == 'pull_request' && 'preview' || (github.ref_name == 'main' && 'production' || 'staging') }}
