@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Comprueba que métricas, logs, alertas y dashboard funcionan. Falla si algo no responde.
 # Deja la evidencia en la carpeta evidencias/.
+# Detiene la base de datos unos segundos: usar solo en clústeres de prueba.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 mkdir -p evidencias
+: > evidencias/falla-controlada.txt
 PIDS=()
+PETICIONES=()
 trap 'kill "${PIDS[@]}" 2>/dev/null || true' EXIT
 
 reenviar() { kubectl -n "$1" port-forward "service/$2" "$3" >/dev/null & PIDS+=("$!"); }
@@ -16,6 +19,20 @@ reenviar monitoring grafana 13000:3000
 sleep 8
 
 scripts/generar-trafico.sh http://localhost:18098 "${REPETICIONES:-30}" | tee evidencias/trafico.txt
+
+# Falla controlada: sin base de datos la API responde 500 y registra el error,
+# lo que permite comprobar que el monitoreo detecta una falla real del servidor
+echo "Falla controlada: se detiene la base de datos"
+kubectl -n order-manager scale deployment/postgres --replicas=0
+kubectl -n order-manager wait --for=delete pod -l app=postgres --timeout=60s
+for _ in 1 2 3; do
+  curl -s -m 60 -o /dev/null -w '%{http_code}\n' http://localhost:18098/api/orders >> evidencias/falla-controlada.txt &
+  PETICIONES+=("$!")
+done
+wait "${PETICIONES[@]}" || true
+kubectl -n order-manager scale deployment/postgres --replicas=1
+kubectl -n order-manager rollout status deployment/postgres --timeout=120s
+kubectl -n order-manager rollout status deployment/order-manager --timeout=120s
 sleep 20
 
 consulta() { curl -fsS --get http://localhost:19090/api/v1/query --data-urlencode "query=$1"; }
