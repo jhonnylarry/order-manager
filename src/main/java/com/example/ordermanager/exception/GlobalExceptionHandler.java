@@ -1,5 +1,7 @@
 package com.example.ordermanager.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -13,6 +15,8 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(OrderNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(OrderNotFoundException ex) {
@@ -48,6 +52,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+        // Sin este registro los errores 500 no quedarían en los logs
+        log.error("Error no controlado: {}", ex.getMessage(), ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR,
                 "Error interno del servidor. Contacte al administrador.");
     }
