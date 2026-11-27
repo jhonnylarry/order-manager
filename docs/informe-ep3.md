@@ -253,7 +253,12 @@ Verificación del segundo cambio en AWS: la versión `5ba1503` se desplegó en 3
 
 ### Mis decisiones técnicas
 
-> **Pendiente (completar por el estudiante):** para cada fila de la tabla, qué decidí, por qué y qué haría después.
+* 9 vulnerabilidades críticas en Trivy (PR #13): Decidí actualizar a Spring Boot 4.1.3 en vez de ignorarlas porque afectaban componentes expuestos (Tomcat y Spring) y suprimirlas habría anulado el propósito del bloqueo en el pipeline. Después: mantener las actualizaciones semanales de Dependabot y extender el bloqueo a vulnerabilidades de severidad alta.
+* JSON mal escrito respondía 500 (PR #15): Decidí mapear los errores de entrada a códigos `4xx` porque una petición inválida del cliente no es una falla del servidor; contarlo como `500` distorsiona la disponibilidad real y genera falsos positivos en `ErroresEnLogs`. Después: estandarizar las respuestas de error con `ProblemDetail` (RFC 7807).
+* Verificación del pipeline dependía de ese 500 (PR #15): Decidí modificar `scripts/verificar-observabilidad.sh` para detener PostgreSQL y provocar una falla real de infraestructura en lugar de depender de un defecto en el manejo de errores. Después: validar automáticamente que las alertas vuelvan a estado normal al recuperar la base de datos.
+* Latencia p95 de GET /api/orders crece con los pedidos (sin cambios): No lo modifiqué ahora porque sigue muy por debajo del umbral de 1 s. Qué haría: implementar paginación (`Pageable`), evitar consultas N+1 al cargar ítems (`JOIN FETCH` o `@EntityGraph`) e indexar la columna `status`.
+* Primeros 500 tras reinicio no cuentan en rate() (sin cambios): Mantuve la consulta y documenté el comportamiento de Prometheus al crear una serie nueva, ya que `ErroresEnLogs` cubre esa ventana. Después: inicializar los contadores HTTP al arrancar la aplicación.
+* 108 s de caída al detener el nodo trabajador (sin cambios): Lo acepto como línea base en este laboratorio de dos instancias, pero no sería aceptable en producción. Qué cambiaría: fijar un mínimo de 2 réplicas en el HPA con `podAntiAffinity` para distribuirlas entre nodos y agregar un `PodDisruptionBudget`.
 
 ## 8. Cómo reproducirlo
 
@@ -270,7 +275,9 @@ infra/aws/eliminar.sh
 
 ## 9. Conclusiones
 
-> **Pendiente (completar por el estudiante).**
+El proyecto logró desplegar y validar los mismos manifiestos de Kubernetes en dos entornos (`kind` en CI/CD y `k3s` en AWS) con monitoreo completo, 12 políticas de cumplimiento automatizadas y bloqueo ante fallas críticas. Como limitaciones pendientes quedan el punto único de fallo en el nodo servidor (que aloja PostgreSQL y el monitoreo), la ausencia de Alertmanager para enviar notificaciones externas y el despliegue manual en AWS debido a las credenciales temporales del laboratorio.
+
+Integrar el monitoreo y el bloqueo dentro del pipeline sirvió para convertir los datos en decisiones concretas: Trivy detuvo un despliegue con 9 vulnerabilidades críticas antes de llegar a ejecución, y Grafana junto a Loki permitieron detectar falsos errores `500` y corregir una prueba de observabilidad que no reflejaba fallas reales.
 
 ## 10. Uso de inteligencia artificial
 
@@ -278,4 +285,6 @@ infra/aws/eliminar.sh
 
 ## 11. Reflexión individual
 
-> **Pendiente (completar por el estudiante).**
+En esta evaluación aprendí que tener un servicio "arriba" no basta: operar bajo enfoque DevOps exige medir disponibilidad, latencia y errores reales, y usar esa evidencia para decidir qué corregir. Lo que más me costó fue calibrar las pruebas de falla y entender comportamientos finos del monitoreo, como por qué rate() no contabilizaba los primeros 500 tras un reinicio y cómo provocar una caída real de PostgreSQL dentro del pipeline.
+
+Al desarrollar todo el ciclo en solitario —desde la infraestructura en AWS y los manifiestos de Kubernetes hasta el monitoreo, las políticas de cumplimiento y el pipeline— me tocó asumir tanto la implementación técnica como el criterio para priorizar qué corregir de inmediato y qué dejar documentado como deuda técnica. Si tuviera que hacerlo de nuevo, partiría desde el inicio con 2 réplicas mínimas de la API para reducir el tiempo de indisponibilidad ante caídas de nodo e incluiría Alertmanager para recibir alertas activas.
