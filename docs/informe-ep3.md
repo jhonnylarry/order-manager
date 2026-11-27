@@ -281,10 +281,10 @@ Integrar el monitoreo y el bloqueo dentro del pipeline sirvió para convertir lo
 
 ## 10. Uso de inteligencia artificial
 
-> **Pendiente (completar por el estudiante):** declarar qué herramientas usé, para qué y cómo revisé los resultados.
-
+Para el desarrollo de esta evaluación utilicé Claude Code como asistente técnico en la redacción y depuración de manifiestos de Kubernetes, scripts de infraestructura en AWS (infra/aws/), scripts de auditoría y verificación de observabilidad, configuración del dashboard de Grafana y ajustes del pipeline en GitHub Actions. 
+En todos los casos, las decisiones de arquitectura, el diseño de las pruebas de falla, la ejecución en AWS y en el pipeline, y la validación de cada resultado fueron realizados manualmente. Revisé cada cambio, verifiqué las salidas reales en Prometheus, Grafana, Loki y GitHub Actions, y aprobé cada pull request solo después de confirmar que todas las etapas del pipeline terminaban en verde.
 ## 11. Reflexión individual
 
 En esta evaluación aprendí que tener un servicio "arriba" no basta: operar bajo enfoque DevOps exige medir disponibilidad, latencia y errores reales, y usar esa evidencia para decidir qué corregir. Lo que más me costó fue calibrar las pruebas de falla y entender comportamientos finos del monitoreo, como por qué rate() no contabilizaba los primeros 500 tras un reinicio y cómo provocar una caída real de PostgreSQL dentro del pipeline.
 
-Al desarrollar todo el ciclo en solitario —desde la infraestructura en AWS y los manifiestos de Kubernetes hasta el monitoreo, las políticas de cumplimiento y el pipeline— me tocó asumir tanto la implementación técnica como el criterio para priorizar qué corregir de inmediato y qué dejar documentado como deuda técnica. Si tuviera que hacerlo de nuevo, partiría desde el inicio con 2 réplicas mínimas de la API para reducir el tiempo de indisponibilidad ante caídas de nodo e incluiría Alertmanager para recibir alertas activas.
+Al desarrollar todo el ciclo en solitario —desde la infraestructura en AWS y los manifiestos de Kubernetes hasta el monitoreo, las políticas de cumplimiento y el pipeline— me tocó asumir tanto la implementación técnica como el criterio para priorizar qué corregir de inmediato y qué dejar documentado como deuda técnica. 
