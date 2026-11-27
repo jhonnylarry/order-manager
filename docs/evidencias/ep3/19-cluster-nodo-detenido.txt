@@ -1,0 +1,31 @@
+# Clúster con el trabajador detenido desde la consola - 26-11-2026 22:47:59
+-------------------------------------------------------------------------------------------------
+|                                       DescribeInstances                                       |
++---------+--------------+----------------------------+----------------------------+------------+
+| Estado  |     IP       |          Nombre            |          Subred            |   Tipo     |
++---------+--------------+----------------------------+----------------------------+------------+
+|  stopped|  None        |  order-manager-trabajador  |  subnet-09988e4b1238dc0ec  |  t3.medium |
+|  running|  98.81.51.27 |  order-manager-servidor    |  subnet-0123e157883b3442b  |  t3.large  |
++---------+--------------+----------------------------+----------------------------+------------+
+NAME             STATUS     ROLES           AGE   VERSION        ROL
+ip-10-20-1-58    Ready      control-plane   8h    v1.37.2+k3s1   principal
+ip-10-20-2-107   NotReady   <none>          8h    v1.37.2+k3s1   trabajador
+
+NAME                             READY   STATUS    RESTARTS   AGE    IP           NODE             NOMINATED NODE   READINESS GATES
+order-manager-5c4cbd5d77-q765p   1/1     Running   0          143m   10.42.1.11   ip-10-20-2-107   <none>           <none>
+postgres-5fb99746dc-tn45x        1/1     Running   0          138m   10.42.0.31   ip-10-20-1-58    <none>           <none>
+	
+
+API: 000
+
+## Aplicación reubicada - 22:49:00
+NAME             STATUS     ROLES           AGE   VERSION        ROL
+ip-10-20-1-58    Ready      control-plane   8h    v1.37.2+k3s1   principal
+ip-10-20-2-107   NotReady   <none>          8h    v1.37.2+k3s1   trabajador
+
+NAME                             READY   STATUS        RESTARTS   AGE    IP           NODE             NOMINATED NODE   READINESS GATES
+order-manager-5c4cbd5d77-q765p   1/1     Terminating   0          144m   10.42.1.11   ip-10-20-2-107   <none>           <none>
+order-manager-5c4cbd5d77-rxg58   1/1     Running       0          38s    10.42.0.32   ip-10-20-1-58    <none>           <none>
+postgres-5fb99746dc-tn45x        1/1     Running       0          139m   10.42.0.31   ip-10-20-1-58    <none>           <none>
+	
+API: 200

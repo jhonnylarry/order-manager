@@ -1,0 +1,47 @@
+# Control de seguridad del run bloqueado (45884865302)
+Total: 9 (CRITICAL: 9)
+
+┌─────────────────────────────────────────────────────┬────────────────┬──────────┬────────┬───────────────────┬───────────────────────────┬──────────────────────────────────────────────────────────────┐
+│                       Library                       │ Vulnerability  │ Severity │ Status │ Installed Version │       Fixed Version       │                            Title                             │
+├─────────────────────────────────────────────────────┼────────────────┼──────────┼────────┼───────────────────┼───────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ org.apache.tomcat.embed:tomcat-embed-core (app.jar) │ CVE-2025-24813 │ CRITICAL │ fixed  │ 10.1.30           │ 11.0.3, 10.1.35, 9.0.99   │ tomcat: Potential RCE and/or information disclosure and/or   │
+│                                                     │                │          │        │                   │                           │ information corruption with partial PUT...                   │
+│                                                     │                │          │        │                   │                           │ https://avd.aquasec.com/nvd/cve-2025-24813                   │
+│                                                     ├────────────────┤          │        │                   ├───────────────────────────┼──────────────────────────────────────────────────────────────┤
+│                                                     │ CVE-2026-41293 │          │        │                   │ 9.0.118, 10.1.55, 11.0.22 │ tomcat-coyote: Apache Tomcat: HTTP/2 request headers not     │
+│                                                     │                │          │        │                   │                           │ validated                                                    │
+│                                                     │                │          │        │                   │                           │ https://avd.aquasec.com/nvd/cve-2026-41293                   │
+│                                                     ├────────────────┤          │        │                   │                           ├──────────────────────────────────────────────────────────────┤
+│                                                     │ CVE-2026-43512 │          │        │                   │                           │ tomcat-coyote: Apache Tomcat: Authentication bypass via      │
+│                                                     │                │          │        │                   │                           │ digest authentication                                        │
+│                                                     │                │          │        │                   │                           │ https://avd.aquasec.com/nvd/cve-2026-43512                   │
+│                                                     ├────────────────┤          │        │                   │                           ├──────────────────────────────────────────────────────────────┤
+│                                                     │ CVE-2026-43515 │          │        │                   │                           │ tomcat-coyote: tomcat: Improper Authorization allows         │
+│                                                     │                │          │        │                   │                           │ security bypass                                              │
+│                                                     │                │          │        │                   │                           │ https://avd.aquasec.com/nvd/cve-2026-43515                   │
+│                                                     ├────────────────┤          │        │                   ├───────────────────────────┼──────────────────────────────────────────────────────────────┤
+│                                                     │ CVE-2026-55276 │          │        │                   │ 11.0.23, 10.1.56, 9.0.119 │ tomcat: Apache Tomcat: Misleading security logs due to       │
+│                                                     │                │          │        │                   │                           │ incorrect control flow                                       │
+│                                                     │                │          │        │                   │                           │ https://avd.aquasec.com/nvd/cve-2026-55276                   │
+│                                                     ├────────────────┤          │        │                   ├───────────────────────────┼──────────────────────────────────────────────────────────────┤
+│                                                     │ CVE-2026-65182 │          │        │                   │ 11.0.25, 10.1.58, 9.0.121 │ tomcat: Apache Tomcat: Security constraint bypass due to     │
+│                                                     │                │          │        │                   │                           │ improper access control                                      │
+│                                                     │                │          │        │                   │                           │ https://avd.aquasec.com/nvd/cve-2026-65182                   │
+│                                                     ├────────────────┤          │        │                   │                           ├──────────────────────────────────────────────────────────────┤
+│                                                     │ CVE-2026-65905 │          │        │                   │                           │ tomcat: Apache Tomcat: Authentication bypass via limited     │
+│                                                     │                │          │        │                   │                           │ replay attack in DIGEST authenticator...                     │
+│                                                     │                │          │        │                   │                           │ https://avd.aquasec.com/nvd/cve-2026-65905                   │
+│                                                     ├────────────────┤          │        │                   │                           ├──────────────────────────────────────────────────────────────┤
+│                                                     │ CVE-2026-68525 │          │        │                   │                           │ tomcat: Apache Tomcat: Unauthorized resource access via FORM │
+│                                                     │                │          │        │                   │                           │ authentication bypass                                        │
+│                                                     │                │          │        │                   │                           │ https://avd.aquasec.com/nvd/cve-2026-68525                   │
+├─────────────────────────────────────────────────────┼────────────────┤          │        ├───────────────────┼───────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ org.springframework:spring-webmvc (app.jar)         │ CVE-2026-47884 │          │        │ 6.1.13            │ 7.0.9                     │ org.springframework/spring-webmvc: Spring Framework: Remote  │
+│                                                     │                │          │        │                   │                           │ Code Execution via improper path limitation in XsltView...   │
+│                                                     │                │          │        │                   │                           │ https://avd.aquasec.com/nvd/cve-2026-47884                   │
+└─────────────────────────────────────────────────────┴────────────────┴──────────┴────────┴───────────────────┴───────────────────────────┴──────────────────────────────────────────────────────────────┘
+BLOQUEADO  Vulnerabilidades críticas en la imagen
+APROBADO   Secretos en el repositorio
+234.57 KiB / 234.57 KiB [------------------------------------------------------] 100.00% ? p/s 100ms2026-11-26T19:48:46Z
+APROBADO   Configuraciones críticas
+Pipeline detenido: 1 control(es) de seguridad no aprobado(s).

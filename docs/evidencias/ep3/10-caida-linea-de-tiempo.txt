@@ -1,0 +1,12 @@
+16:56:36 (+0 s)  Se detiene el nodo trabajador
+16:56:38 (+2 s)  La API deja de responder
+16:57:20 (+44 s)  Capturas de la caída guardadas
+16:58:24 (+108 s)  La API vuelve a responder desde el otro nodo
+16:58:43 (+127 s)  Capturas de la recuperación guardadas
+16:58:44 (+128 s)  Se vuelve a iniciar el nodo trabajador
+16:59:08 (+152 s)  Prueba terminada
+
+Alerta AplicacionNoDisponible según el historial de Prometheus (consulta ALERTS):
+16:56:53  pendiente (la regla exige 1 minuto sin la aplicación)
+16:57:53  disparada
+16:58:33  última muestra disparada (la aplicación ya respondía a las 16:58:24)

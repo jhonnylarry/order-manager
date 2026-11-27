@@ -26,4 +26,4 @@ Thumbs.db
 docker-compose.override.yml
 
 # Evidencias generadas por los scripts
-evidencias/
+/evidencias/

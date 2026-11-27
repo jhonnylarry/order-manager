@@ -2,7 +2,9 @@
 
 [![CI/CD](https://github.com/jhonnylarry/order-manager/actions/workflows/ci-cd.yml/badge.svg?branch=develop)](https://github.com/jhonnylarry/order-manager/actions/workflows/ci-cd.yml)
 
-API REST para gestionar pedidos de un e-commerce, contenerizada con Docker, orquestada con Docker Compose y entregada mediante un pipeline CI/CD en GitHub Actions. Proyecto de la Evaluación Parcial N°2 de Ingeniería DevOps (DOY0101).
+API REST para gestionar pedidos de un e-commerce, contenerizada con Docker, desplegada en Kubernetes con monitoreo y entregada mediante un pipeline CI/CD en GitHub Actions. Proyecto de Ingeniería DevOps (DOY0101).
+
+**Evaluación Parcial N°3:** el informe de monitoreo, Kubernetes, cumplimiento y bloqueo del pipeline está en [docs/informe-ep3.md](docs/informe-ep3.md).
 
 ## Tabla de contenidos
 
@@ -21,8 +23,8 @@ API REST para gestionar pedidos de un e-commerce, contenerizada con Docker, orqu
 13. [Trazabilidad y calidad](#trazabilidad-y-calidad)
 14. [Flujo de trabajo con Git](#flujo-de-trabajo-con-git)
 15. [Evidencias de verificación](#evidencias-de-verificación)
-16. [Uso de inteligencia artificial](#uso-de-inteligencia-artificial)
-17. [Reflexiones individuales](#reflexiones-individuales)
+16. [Uso de inteligencia artificial](#uso-de-inteligencia-artificial-evaluación-n2)
+17. [Reflexiones individuales](#reflexiones-individuales-evaluación-n2)
 18. [Autores](#autores)
 
 ## Descripción del proyecto
@@ -37,12 +39,12 @@ Funcionalidades:
 - Avanzar el pedido: `PENDING` → `CONFIRMED` → `SHIPPED` → `DELIVERED`, o cancelarlo (salvo que esté entregado o ya cancelado).
 - Eliminar pedidos.
 
-Objetivos de la evaluación que cubre el proyecto:
+Objetivos de la Evaluación Parcial N°2 (los de la N°3 están en el [informe](docs/informe-ep3.md)):
 
 | Indicador | Qué se implementó |
 |---|---|
 | IE1 – Contenedores | Dockerfile multi-stage, usuario no root, healthcheck y `.dockerignore` |
-| IE2 – Pruebas automatizadas | 47 pruebas con JaCoCo y una cobertura mínima exigida en el pipeline |
+| IE2 – Pruebas automatizadas | 47 pruebas en esa entrega con JaCoCo y una cobertura mínima exigida en el pipeline |
 | IE3 – Seguridad y escalabilidad | SonarCloud con quality gate, Dependabot, secretos fuera del código y límites de recursos |
 | IE4 – Despliegue y trazabilidad | Despliegue automático con Docker Compose, imagen etiquetada con el commit y entornos `staging` y `production` |
 | IE5 – Orquestación | Docker Compose con aplicación y PostgreSQL, arranque ordenado y datos persistentes |
@@ -54,9 +56,11 @@ Objetivos de la evaluación que cubre el proyecto:
 | Lenguaje y framework | Java 17, Spring Boot 4.1.3 (Web, Data JPA, Validation, Actuator) |
 | Base de datos | H2 en memoria (desarrollo y pruebas), PostgreSQL 16 (Docker) |
 | Pruebas | JUnit 5, Mockito, Spring Boot Test (MockMvc), JaCoCo |
-| Contenedores | Docker (multi-stage), Docker Compose |
+| Contenedores y orquestación | Docker (multi-stage), Docker Compose, Kubernetes (kind y k3s), Kustomize |
+| Monitoreo | Prometheus, Pushgateway, Loki, Alloy, Grafana |
+| Nube | AWS (VPC y EC2) |
 | CI/CD | GitHub Actions |
-| Seguridad y calidad | SonarCloud, Dependabot |
+| Seguridad y calidad | SonarCloud, Trivy, Dependabot, reglas de protección de ramas |
 
 ## Arquitectura
 
@@ -78,7 +82,7 @@ OrderRepository   (Spring Data JPA)
 Order ──< OrderItem   (entidades)
 ```
 
-- `GlobalExceptionHandler` traduce las excepciones a respuestas JSON: 404 (no existe), 409 (transición de estado inválida), 400 (datos inválidos) y 500 (error inesperado).
+- `GlobalExceptionHandler` traduce las excepciones a respuestas JSON: 404 (no existe), 409 (transición de estado inválida), 400 (datos inválidos o solicitud ilegible), 405 y 415 (método o tipo de contenido no admitido) y 500 (error inesperado).
 - En desarrollo se usa H2 en memoria. En Docker se activa el perfil `docker`, que usa PostgreSQL con persistencia real.
 
 ## Requisitos previos
@@ -152,9 +156,11 @@ mvn clean verify        # además genera el reporte de JaCoCo
 
 El reporte HTML queda en `target/site/jacoco/index.html`.
 
-El repositorio incluía 24 pruebas (servicio y controlador) que cubrían un **69,5%** del total, por debajo del mínimo de 70%. Se agregaron 23 pruebas nuevas para el modelo (`Order`, `OrderItem`) y para los endpoints del controlador que no estaban cubiertos.
+Actualmente hay **53 pruebas** (0 fallos), con una cobertura de **96,7%** de instrucciones, 95,8% de líneas y 98,1% de ramas.
 
-| Métrica (total global de la aplicación) | Solo pruebas entregadas | Con las pruebas agregadas |
+En la Evaluación N°2, el repositorio incluía 24 pruebas (servicio y controlador) que cubrían un **69,5%** del total, por debajo del mínimo de 70%. Se agregaron 23 pruebas nuevas para el modelo (`Order`, `OrderItem`) y para los endpoints del controlador que no estaban cubiertos.
+
+| Métrica en la Evaluación N°2 | Solo pruebas entregadas | Con las pruebas agregadas |
 |---|---|---|
 | Instrucciones | 69,5% | **98,4%** |
 | Líneas | 73,8% | 97,8% |
@@ -176,8 +182,6 @@ Decisiones:
 - **Healthcheck** contra `/actuator/health`: permite a Compose saber cuándo la aplicación está lista.
 - **`.dockerignore`**: excluye `target/`, `.git`, `.github/`, documentación, configuración de IDE, logs y archivos `.env`, para acelerar el build y evitar que secretos entren a la imagen.
 - **Imagen base multi-arquitectura**: se eligió Liberica porque publica variantes amd64 y arm64, lo que permite construir tanto en el pipeline como en equipos Apple Silicon. `eclipse-temurin:17-jre-alpine` solo publica amd64.
-
-Tamaño de la imagen final: 279 MB.
 
 ## Perfiles y persistencia
 
@@ -206,31 +210,29 @@ Con H2 en memoria los datos se pierden al reiniciar. El perfil `docker` (`applic
 
 ## Pipeline CI/CD
 
-Definido en `.github/workflows/ci-cd.yml`. Se ejecuta con cada `push` a `main` o `develop` y con cada pull request hacia `main`.
+Definido en `.github/workflows/ci-cd.yml`. Se ejecuta con cada `push` y pull request hacia `main` o `develop`.
 
 ```mermaid
 flowchart LR
-    T[test<br/>pruebas y cobertura] --> S[security<br/>SonarCloud] --> B[build<br/>imagen Docker] --> D[deploy<br/>Docker Compose]
+    A[audit] --> T[test] --> S[security] --> B[build] --> E[scan] --> D[deploy]
 ```
 
 | Etapa | Qué hace | Se bloquea si |
 |---|---|---|
-| `test` | `mvn clean verify`, reporte JaCoCo y verificación de cobertura mínima de 70% | falla una prueba o la cobertura es menor a 70% |
-| `security` | análisis en SonarCloud con `sonar.qualitygate.wait=true` | el quality gate no se cumple |
-| `build` | construye la imagen con etiquetas de trazabilidad y la guarda comprimida como artefacto (7 días) | falla la construcción |
-| `deploy` | carga la imagen, levanta `app` y `db` con Compose, espera el estado `healthy` y ejecuta una prueba de humo | la app no queda saludable o la prueba de humo falla |
+| `audit` | auditoría de cumplimiento (`scripts/auditar-cumplimiento.sh`) | una política no se cumple |
+| `test` | `mvn clean verify` y reporte JaCoCo | falla una prueba o la cobertura es menor a 70% |
+| `security` | análisis en SonarCloud | el quality gate no se cumple |
+| `build` | imagen con etiquetas de trazabilidad | falla la construcción |
+| `scan` | Trivy: vulnerabilidades, secretos y configuración | hay un hallazgo crítico |
+| `deploy` | despliegue en un clúster Kubernetes efímero (kind) y verificación del monitoreo | la aplicación o el monitoreo no responden |
 
-Cada etapa usa `needs` sobre la anterior, por lo que si una falla, las siguientes no se ejecutan. El despliegue corre solo en `push`, no en pull requests.
-
-**Entorno simulado**: el despliegue ocurre en el runner de GitHub Actions con Docker Compose, con credenciales efímeras generadas en cada ejecución. Al terminar, el entorno se elimina.
-
-**Dependabot** (`.github/dependabot.yml`) revisa cada lunes las dependencias de Maven, las imágenes del `Dockerfile` y de `docker-compose.yml`, y las acciones de GitHub Actions, y abre pull requests con las actualizaciones.
+Cada etapa depende de la anterior: si una falla, las siguientes no se ejecutan. El detalle está en el [informe](docs/informe-ep3.md).
 
 **Secretos**: `SONAR_TOKEN` está configurado como secret del repositorio. No hay credenciales en el código.
 
-**Artefactos** de cada ejecución: `jacoco-report` (reporte de cobertura) y `docker-image` (imagen construida).
+**Artefactos** de cada ejecución: auditoría, reporte de cobertura, imagen, reporte de seguridad y evidencias de observabilidad.
 
-**Alertas**: cuando una etapa falla, GitHub marca la ejecución en rojo, detiene el pipeline y envía una notificación a quien la disparó, según su configuración de notificaciones.
+**Dependabot** (`.github/dependabot.yml`) revisa cada lunes las dependencias de Maven, las imágenes y las acciones.
 
 Análisis de calidad en SonarCloud: https://sonarcloud.io/project/overview?id=jhonnylarry_order-manager
 
@@ -238,18 +240,17 @@ Análisis de calidad en SonarCloud: https://sonarcloud.io/project/overview?id=jh
 
 **Trazabilidad** (del desarrollo a producción):
 
-- Cada cambio entra por un pull request desde una rama `feature/*`, con commits descriptivos que explican qué cambió y por qué.
-- La imagen Docker se etiqueta con el SHA del commit y registra el repositorio de origen mediante etiquetas OCI (`org.opencontainers.image.revision` y `org.opencontainers.image.source`).
-- El despliegue usa los entornos de GitHub `staging` (rama `develop`) y `production` (rama `main`). GitHub registra qué commit llegó a cada entorno y cuándo.
-- Cada despliegue deja en el resumen de la ejecución el entorno, el commit, la imagen y el enlace a la ejecución.
-- La imagen y el reporte de cobertura quedan como artefactos de la ejecución que los generó.
+- Cada cambio entra por un pull request desde una rama de trabajo, con commits descriptivos.
+- La imagen Docker se etiqueta con el SHA del commit y registra el repositorio de origen mediante etiquetas OCI.
+- El despliegue usa los entornos de GitHub `preview` (pull requests), `staging` (`develop`) y `production` (`main`).
+- El commit desplegado se publica como métrica y se ve en el dashboard.
 
 **Calidad**:
 
-- Cobertura total de 98,4% con 47 pruebas, y un mínimo de 70% exigido automáticamente.
-- Análisis estático y quality gate de SonarCloud antes de construir la imagen.
-- Dependabot mantiene actualizadas las dependencias y detecta vulnerabilidades conocidas.
-- Imagen mínima, sin herramientas de compilación, ejecutada con un usuario sin privilegios.
+- Cobertura mínima de 70% exigida automáticamente.
+- Quality gate de SonarCloud y escaneo de Trivy antes del despliegue.
+- Ramas `main` y `develop` protegidas.
+- Imagen sin herramientas de compilación, ejecutada con un usuario sin privilegios.
 
 ## Flujo de trabajo con Git
 
@@ -262,13 +263,14 @@ Se aplicó GitFlow: `main` (producción), `develop` (integración) y una rama `f
 | `feature/perfil-docker` | perfil `docker` con PostgreSQL |
 | `feature/docker-compose` | orquestación con Docker Compose |
 | `feature/pipeline-cicd` | Dependabot, SonarCloud y pipeline |
-| `docs/informe-readme` | este documento |
+| `docs/informe-readme` | documentación de la Evaluación N°2 |
+| `feature/monitoreo` y siguientes | monitoreo, Kubernetes, AWS, seguridad y cumplimiento (Evaluación N°3) |
 
 Convención de commits: `tipo: resumen` (`feat`, `test`, `build`, `ci`, `docs`), con un cuerpo que explica qué cambia y por qué.
 
 ## Evidencias de verificación
 
-Salidas reales de los comandos ejecutados durante el desarrollo.
+Salidas reales de los comandos ejecutados durante la Evaluación N°2. Las de la N°3 están en el [informe](docs/informe-ep3.md).
 
 **Pruebas y cobertura**
 
@@ -313,13 +315,13 @@ HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection
 
 **Persistencia**: tras `docker compose down` (sin `-v`) y `docker compose up`, los dos pedidos siguen disponibles.
 
-## Uso de inteligencia artificial
+## Uso de inteligencia artificial (Evaluación N°2)
 
 Para esta evaluación utilicé Claude Code, como asistente de desarrollo. Lo apliqué en la redacción de las pruebas unitarias adicionales, de los archivos de contenedores y despliegue (Dockerfile, docker-compose.yml, perfil docker), orientacion para configrarcion del pipeline de GitHub Actions con Dependabot y SonarCloud. También me apoyó para diagnosticar y corregir las fallas de las primeras ejecuciones del pipeline.
 
 Yo creé las cuentas y credenciales necesarias, revisé los cambios, ejecuté y verifiqué los resultados, y aprobé cada pull request antes de integrarlo.
 
-## Reflexiones individuales
+## Reflexiones individuales (Evaluación N°2)
 
 El desarrollo de este proyecto marca mi transición definitiva de la simple programación a la verdadera ingeniería de software bajo una cultura DevOps. Implementar un flujo de trabajo estricto con GitFlow, sumado a la contenedorización con Docker y la orquestación con Docker Compose, me permitió comprender la importancia de la paridad de entornos, eliminando por fin el problema de "en mi máquina sí funciona".
 El mayor aprendizaje técnico fue la automatización temprana. Configurar pipelines de CI/CD en GitHub Actions y establecer barreras de calidad innegociables —como el Quality Gate de SonarCloud y la exigencia de un 98% de cobertura con JaCoCo— cambia la mentalidad: la seguridad y la estabilidad se validan desde el primer commit, no al final del proceso.
