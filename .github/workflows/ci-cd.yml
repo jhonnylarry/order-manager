@@ -1,9 +1,11 @@
 # ============================================================
 # Pipeline CI/CD - Order Manager
+#   0. audit     auditoría de cumplimiento de las políticas del proyecto
 #   1. test      pruebas unitarias + cobertura mínima (JaCoCo)
 #   2. security  análisis estático en SonarCloud con quality gate
 #   3. build     imagen Docker con trazabilidad al commit
-#   4. deploy    despliegue automático con Docker Compose + prueba de humo
+#   4. scan      bloqueo por vulnerabilidades críticas, secretos y configuración
+#   5. deploy    despliegue automático en Kubernetes con monitoreo verificado
 # Cada etapa depende de la anterior: si una falla, el pipeline se detiene.
 # ============================================================
 name: CI/CD Pipeline - Order Manager
@@ -12,7 +14,7 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 env:
   JAVA_VERSION: "17"
@@ -22,14 +24,46 @@ env:
   SCANNER_JAVA_VERSION: "21"
   SONAR_ORGANIZATION: jhonnylarry
   SONAR_PROJECT_KEY: jhonnylarry_order-manager
+  # Escáner de seguridad: versión fija y verificada por su huella SHA-256
+  TRIVY_VERSION: "0.76.2"
+  TRIVY_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
 
 jobs:
+  # ----------------------------------------------------------
+  # 0. Auditoría de cumplimiento
+  # ----------------------------------------------------------
+  audit:
+    name: Auditoría de cumplimiento
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Auditar las políticas del proyecto
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/auditar-cumplimiento.sh
+
+      - name: Publicar informe de auditoría
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auditoria-cumplimiento
+          path: evidencias/
+          if-no-files-found: ignore
+
   # ----------------------------------------------------------
   # 1. Pruebas y cobertura
   # ----------------------------------------------------------
   test:
     name: Pruebas y cobertura
     runs-on: ubuntu-latest
+    needs: audit
+    outputs:
+      cobertura: ${{ steps.cobertura.outputs.total }}
+      pruebas: ${{ steps.cobertura.outputs.pruebas }}
     steps:
       - name: Descargar código
         uses: actions/checkout@v4
@@ -45,9 +79,11 @@ jobs:
         run: mvn -B clean verify
 
       - name: Verificar cobertura mínima
+        id: cobertura
         run: |
           python3 - <<'EOF'
-          import csv, os, sys
+          import csv, glob, os, sys
+          import xml.etree.ElementTree as ET
           minimo = float(os.environ["MIN_COVERAGE"])
           filas = list(csv.DictReader(open("target/site/jacoco/jacoco.csv")))
           cubiertas = sum(int(f["INSTRUCTION_COVERED"]) for f in filas)
@@ -55,6 +91,10 @@ jobs:
           total = 100 * cubiertas / (cubiertas + perdidas)
           resumen = f"Cobertura total de instrucciones: {total:.1f}% (mínimo exigido: {minimo:.0f}%)"
           print(resumen)
+          pruebas = sum(int(ET.parse(r).getroot().get("tests"))
+                        for r in glob.glob("target/surefire-reports/TEST-*.xml"))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as salida:
+              salida.write(f"total={total:.1f}\npruebas={pruebas}\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as s:
               s.write(f"### Cobertura de pruebas\n{resumen}\n")
           sys.exit(0 if total >= minimo else 1)
@@ -132,14 +172,54 @@ jobs:
           retention-days: 7
 
   # ----------------------------------------------------------
-  # 4. Despliegue automático (entorno simulado con Docker Compose)
+  # 4. Bloqueo por fallas críticas de seguridad
   # ----------------------------------------------------------
-  deploy:
-    name: Desplegar con Docker Compose
+  scan:
+    name: Escaneo de vulnerabilidades
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push'
-    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Descargar imagen construida
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: ${{ runner.temp }}
+
+      - name: Cargar la imagen
+        run: gunzip -c "${RUNNER_TEMP}/${IMAGE_NAME}.tar.gz" | docker load
+
+      - name: Instalar Trivy y verificar su integridad
+        run: |
+          archivo="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -sSfL -o "${RUNNER_TEMP}/${archivo}" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${archivo}"
+          echo "${TRIVY_SHA256}  ${RUNNER_TEMP}/${archivo}" | sha256sum -c -
+          sudo tar -xzf "${RUNNER_TEMP}/${archivo}" -C /usr/local/bin trivy
+
+      - name: Aplicar política de seguridad
+        run: scripts/escanear-seguridad.sh "${IMAGE_NAME}:1.0.0"
+
+      - name: Publicar reporte de seguridad
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-seguridad
+          path: evidencias/
+          if-no-files-found: ignore
+
+  # ----------------------------------------------------------
+  # 5. Despliegue automático en Kubernetes (clúster efímero kind)
+  # ----------------------------------------------------------
+  deploy:
+    name: Desplegar en Kubernetes y verificar monitoreo
+    runs-on: ubuntu-latest
+    needs: [test, build, scan]
+    environment: ${{ github.event_name == 'pull_request' && 'preview' || (github.ref_name == 'main' && 'production' || 'staging') }}
+    env:
+      ENTORNO: ${{ github.event_name == 'pull_request' && 'preview' || (github.ref_name == 'main' && 'production' || 'staging') }}
     steps:
       - name: Descargar código
         uses: actions/checkout@v4
@@ -149,53 +229,59 @@ jobs:
         with:
           name: docker-image
 
-      - name: Cargar imagen en Docker
-        run: gunzip -c "${IMAGE_NAME}.tar.gz" | docker load
+      - name: Crear clúster de Kubernetes
+        uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: order-manager
 
-      - name: Generar credenciales efímeras del entorno
+      - name: Cargar la imagen en el clúster
         run: |
-          {
-            echo "POSTGRES_DB=orderdb"
-            echo "POSTGRES_USER=orderuser"
-            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
-          } > .env
+          gunzip -c "${IMAGE_NAME}.tar.gz" | docker load
+          docker tag "${IMAGE_NAME}:1.0.0" "${IMAGE_NAME}:${GITHUB_SHA}"
+          kind load docker-image "${IMAGE_NAME}:${GITHUB_SHA}" --name order-manager
 
-      - name: Levantar servicios
-        run: docker compose up -d --no-build
+      - name: Desplegar aplicación y monitoreo
+        env:
+          COMMIT: ${{ github.sha }}
+          COVERAGE: ${{ needs.test.outputs.cobertura }}
+          TESTS: ${{ needs.test.outputs.pruebas }}
+        run: COMMIT="${COMMIT:0:7}" scripts/desplegar-k8s.sh "${GITHUB_SHA}"
 
-      - name: Esperar a que la aplicación esté saludable
-        run: |
-          for i in $(seq 1 40); do
-            estado=$(docker inspect -f '{{.State.Health.Status}}' order-manager-app 2>/dev/null || echo "iniciando")
-            echo "Intento $i: $estado"
-            [ "$estado" = "healthy" ] && exit 0
-            sleep 3
-          done
-          echo "La aplicación no llegó a estado saludable"
-          exit 1
-
-      - name: Prueba de humo
-        run: |
-          curl -fsS "http://localhost:${APP_PORT}/actuator/health"
-          curl -fsS -X POST "http://localhost:${APP_PORT}/api/orders" \
-            -H 'Content-Type: application/json' \
-            -d '{"customerName":"Prueba de despliegue","items":[]}'
-          curl -fsS "http://localhost:${APP_PORT}/api/orders"
+      - name: Verificar métricas, logs, alertas y dashboard
+        run: scripts/verificar-observabilidad.sh
 
       - name: Registrar trazabilidad del despliegue
         run: |
           {
-            echo "### Despliegue"
-            echo "- Entorno: ${{ github.ref_name == 'main' && 'production' || 'staging' }}"
-            echo "- Commit: ${{ github.sha }}"
-            echo "- Imagen: ${IMAGE_NAME}:${{ github.sha }}"
-            echo "- Ejecución: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "### Despliegue en Kubernetes"
+            echo "- Entorno: ${ENTORNO}"
+            echo "- Commit: ${GITHUB_SHA}"
+            echo "- Imagen: ${IMAGE_NAME}:${GITHUB_SHA}"
+            echo "- Ejecución: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo '```'
+            cat evidencias/metricas.txt
+            echo
+            cat evidencias/kubernetes.txt
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Mostrar logs si el despliegue falla
+      - name: Mostrar diagnóstico si el despliegue falla
         if: failure()
-        run: docker compose logs
+        run: |
+          kubectl get pods -A
+          kubectl get events -A --sort-by=.lastTimestamp | tail -40
+          for ns in order-manager monitoring; do
+            for d in $(kubectl -n "$ns" get deployments -o name); do
+              echo "=== $ns $d ==="
+              kubectl -n "$ns" logs "$d" --all-containers --tail=60 || true
+            done
+          done
 
-      - name: Detener el entorno simulado
+      - name: Publicar evidencias
         if: always()
-        run: docker compose down -v
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencias-observabilidad
+          path: evidencias/
+          if-no-files-found: ignore

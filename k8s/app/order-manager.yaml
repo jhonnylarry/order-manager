@@ -1,0 +1,123 @@
+# API Order Manager
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-manager
+  labels:
+    app: order-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-manager
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: order-manager
+      annotations:
+        # Prometheus descubre y recolecta las métricas con estas anotaciones
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8098"
+        prometheus.io/path: /actuator/prometheus
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: esperar-base-de-datos
+          image: postgres:16-alpine
+          # Se indica el usuario porque el UID del pod no existe en esta imagen
+          command: ["sh", "-c", "until pg_isready -h postgres -p 5432 -U \"$DB_USER\" -d \"$DB_NAME\"; do sleep 2; done"]
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef: {name: db-credentials, key: POSTGRES_USER}
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef: {name: db-credentials, key: POSTGRES_DB}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      containers:
+        - name: app
+          image: order-manager:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8098
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: docker
+            - name: DB_HOST
+              value: postgres
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef: {name: db-credentials, key: POSTGRES_DB}
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef: {name: db-credentials, key: POSTGRES_USER}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: db-credentials, key: POSTGRES_PASSWORD}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          startupProbe:
+            httpGet: {path: /actuator/health/liveness, port: 8098}
+            periodSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /actuator/health, port: 8098}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: 8098}
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-manager
+spec:
+  type: NodePort
+  selector:
+    app: order-manager
+  ports:
+    - port: 8098
+      targetPort: 8098
+      nodePort: 30080
+---
+# Escalado automático según uso de CPU (requiere metrics-server, incluido en k3s)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-manager
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-manager
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pushgateway
+  labels: {app: pushgateway}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: pushgateway}
+  template:
+    metadata:
+      labels: {app: pushgateway}
+    spec:
+      containers:
+        - name: pushgateway
+          image: prom/pushgateway:v1.11.1
+          ports:
+            - containerPort: 9091
+          readinessProbe:
+            httpGet: {path: /-/ready, port: 9091}
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pushgateway
+spec:
+  selector: {app: pushgateway}
+  ports:
+    - {port: 9091, targetPort: 9091}
