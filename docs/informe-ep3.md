@@ -82,6 +82,10 @@ Registros: [línea de tiempo](evidencias/ep3/10-caida-linea-de-tiempo.txt) · [n
 
 La prueba cubre la caída del trabajador. La base de datos y el monitoreo se ejecutan en el servidor, por lo que no cubre la caída de ese nodo.
 
+La prueba se repitió deteniendo el trabajador desde la consola de AWS, ya con la versión `5ba1503`: el nodo quedó `NotReady` y la aplicación volvió a responder desde un pod nuevo en el servidor ([registro](evidencias/ep3/19-cluster-nodo-detenido.txt)).
+
+![Trabajador detenido y servidor en ejecución](evidencias/ep3/18-aws-nodo-detenido.png)
+
 ### Escalado automático
 
 Con la versión nueva en ejecución, el HorizontalPodAutoscaler pasó de 1 a 2 réplicas al superar el objetivo de CPU, una en cada nodo: [registro](evidencias/ep3/33-escalado-hpa.txt).
