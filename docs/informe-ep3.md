@@ -129,6 +129,7 @@ En AWS se detuvo PostgreSQL dos veces y se enviaron 80 peticiones en cada caída
 | 20:28:26 | Segunda detención |
 | 20:29:21 | `TasaDeErroresAlta` pendiente (11% de respuestas 5xx) |
 | 20:30:21 | `TasaDeErroresAlta` disparada |
+| 20:31:21 | `LatenciaAlta` disparada (las peticiones esperaban 30 s a la base de datos) |
 
 Tras reiniciar la aplicación, las primeras respuestas 500 crean la serie de la métrica y `rate()` no las cuenta; por eso la tasa de errores se reflejó en la segunda caída. [Registro completo](evidencias/ep3/31-falla-base-de-datos.txt).
 
@@ -148,7 +149,11 @@ El dashboard está versionado en `k8s/monitoring/dashboards/order-manager.json` 
 
 Las métricas del pipeline llegan así: la etapa `test` calcula la cobertura y la cantidad de pruebas, la etapa `deploy` las entrega a `scripts/desplegar-k8s.sh`, y el script las publica en Pushgateway junto con la duración del despliegue y el commit.
 
-Las capturas corresponden a la versión `9e7e55f`, anterior a las mejoras de la sección 7.
+Versión `5ba1503` en AWS durante la falla de la base de datos (32 s de despliegue, 96,7% de cobertura, 53 pruebas), con las tres alertas activas y los errores en los logs:
+
+![Dashboard de la versión actual durante la falla](evidencias/ep3/34-grafana-version-nueva-falla.png)
+
+Las dos capturas siguientes corresponden a la versión `9e7e55f`, anterior a las mejoras de la sección 7.
 
 ![Dashboard en funcionamiento normal](evidencias/ep3/04-grafana-completo-antes.png)
 
