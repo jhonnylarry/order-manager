@@ -53,6 +53,16 @@ flowchart TB
 
 Scripts de infraestructura: `infra/aws/crear.sh` (crea red, instancias y clúster), `estado.sh` (consulta) y `eliminar.sh` (borra todo).
 
+### Infraestructura creada en AWS
+
+![Instancias EC2 en ejecución](evidencias/ep3/06-aws-ec2.png)
+
+![VPC con sus dos subredes y tabla de rutas](evidencias/ep3/07-aws-vpc-mapa.png)
+
+![Salida a internet de las subredes](evidencias/ep3/07b-aws-vpc-salida.png)
+
+Detalle de cada nodo: [servidor](evidencias/ep3/08-aws-servidor.png) · [trabajador](evidencias/ep3/09-aws-trabajador.png)
+
 ### Prueba de caída del nodo trabajador
 
 | Hora | Desde el inicio | Evento |
